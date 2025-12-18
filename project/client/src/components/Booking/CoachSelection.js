@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Star, Clock } from 'lucide-react';
+import { User, Clock } from 'lucide-react';
 
 function CoachSelection({ coaches, selectedCoach, onCoachSelect, date, timeSlot }) {
   const formatAvailability = (availability) => {

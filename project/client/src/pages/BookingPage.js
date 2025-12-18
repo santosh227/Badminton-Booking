@@ -18,10 +18,10 @@ function BookingPage() {
     customerInfo: {
       name: '',
       email: '',
-      phone: ''
-    }
+      phone: '',
+    },
   });
-  
+
   const [courts, setCourts] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [equipment, setEquipment] = useState([]);
@@ -51,23 +51,27 @@ function BookingPage() {
       const [courtsRes, equipmentRes, coachesRes] = await Promise.all([
         api.get('/courts'),
         api.get('/equipment'),
-        api.get('/coaches')
+        api.get('/coaches'),
       ]);
-      
-      setCourts(courtsRes.data);
-      setEquipment(equipmentRes.data);
-      setCoaches(coachesRes.data);
+
+      setCourts(Array.isArray(courtsRes.data) ? courtsRes.data : []);
+      setEquipment(Array.isArray(equipmentRes.data) ? equipmentRes.data : []);
+      setCoaches(Array.isArray(coachesRes.data) ? coachesRes.data : []);
     } catch (error) {
       console.error('Error loading initial data:', error);
+      setCourts([]);
+      setEquipment([]);
+      setCoaches([]);
     }
   };
 
   const loadAvailableSlots = async () => {
     try {
       const response = await api.get(`/availability/slots?date=${bookingData.date}`);
-      setAvailableSlots(response.data);
+      setAvailableSlots(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error loading available slots:', error);
+      setAvailableSlots([]);
     }
   };
 
@@ -80,67 +84,74 @@ function BookingPage() {
         date: bookingData.date,
         startTime: bookingData.timeSlot.startTime,
         endTime: bookingData.timeSlot.endTime,
-        equipment: bookingData.equipment,
-        coachId: bookingData.coach?._id
+        equipment: Array.isArray(bookingData.equipment) ? bookingData.equipment : [],
+        coachId: bookingData.coach?._id || null,
       });
-      
+
       setPricing(response.data);
     } catch (error) {
       console.error('Error calculating pricing:', error);
+      setPricing(null);
     }
   };
 
   const handleDateChange = (date) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
       date,
       court: null,
-      timeSlot: null
+      timeSlot: null,
+      equipment: [],
+      coach: null,
     }));
     setStep(1);
   };
 
   const handleCourtSelect = (court) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
       court,
-      timeSlot: null
+      timeSlot: null,
+      equipment: [],
+      coach: null,
     }));
     setStep(2);
   };
 
   const handleTimeSlotSelect = (timeSlot) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
-      timeSlot
+      timeSlot,
     }));
     setStep(3);
   };
 
   const handleEquipmentChange = (selectedEquipment) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
-      equipment: selectedEquipment
+      equipment: Array.isArray(selectedEquipment) ? selectedEquipment : [],
     }));
   };
 
   const handleCoachSelect = (coach) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
-      coach
+      coach,
     }));
   };
 
   const handleCustomerInfoChange = (customerInfo) => {
-    setBookingData(prev => ({
+    setBookingData((prev) => ({
       ...prev,
-      customerInfo
+      customerInfo,
     }));
   };
 
   const handleBookingSubmit = async () => {
     setLoading(true);
     try {
+      const safeEquipment = Array.isArray(bookingData.equipment) ? bookingData.equipment : [];
+
       const bookingPayload = {
         customerName: bookingData.customerInfo.name,
         customerEmail: bookingData.customerInfo.email,
@@ -149,15 +160,15 @@ function BookingPage() {
         date: bookingData.date,
         startTime: bookingData.timeSlot.startTime,
         endTime: bookingData.timeSlot.endTime,
-        equipment: bookingData.equipment.map(eq => ({
+        equipment: safeEquipment.map((eq) => ({
           item: eq.item._id,
-          quantity: eq.quantity
+          quantity: eq.quantity,
         })),
-        coach: bookingData.coach?._id || null
+        coach: bookingData.coach?._id || null,
       };
 
-      const response = await api.post('/bookings', bookingPayload);
-      
+      await api.post('/bookings', bookingPayload);
+
       // Reset form
       setBookingData({
         date: format(new Date(), 'yyyy-MM-dd'),
@@ -168,12 +179,12 @@ function BookingPage() {
         customerInfo: {
           name: '',
           email: '',
-          phone: ''
-        }
+          phone: '',
+        },
       });
       setStep(1);
       setPricing(null);
-      
+
       alert('Booking confirmed successfully!');
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -185,12 +196,21 @@ function BookingPage() {
 
   const canProceedToNextStep = () => {
     switch (step) {
-      case 1: return bookingData.court !== null;
-      case 2: return bookingData.timeSlot !== null;
-      case 3: return true; // Equipment and coach are optional
-      default: return false;
+      case 1:
+        return bookingData.court !== null;
+      case 2:
+        return bookingData.timeSlot !== null;
+      case 3:
+        return true; // Equipment and coach are optional
+      default:
+        return false;
     }
   };
+
+  const safeCourts = Array.isArray(courts) ? courts : [];
+  const safeSlots = Array.isArray(availableSlots) ? availableSlots : [];
+  const safeEquipment = Array.isArray(equipment) ? equipment : [];
+  const safeCoaches = Array.isArray(coaches) ? coaches : [];
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -201,11 +221,9 @@ function BookingPage() {
 
       {/* Date Selection */}
       <div className="mb-8">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Date
-        </label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
         <div className="flex space-x-2">
-          {[0, 1, 2, 3, 4, 5, 6].map(days => {
+          {[0, 1, 2, 3, 4, 5, 6].map((days) => {
             const date = addDays(new Date(), days);
             const dateStr = format(date, 'yyyy-MM-dd');
             return (
@@ -230,7 +248,7 @@ function BookingPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Step 1: Court Selection */}
           <CourtSelection
-            courts={courts}
+            courts={safeCourts}
             selectedCourt={bookingData.court}
             onCourtSelect={handleCourtSelect}
             isActive={step >= 1}
@@ -239,7 +257,7 @@ function BookingPage() {
           {/* Step 2: Time Slot Selection */}
           {step >= 2 && (
             <TimeSlotSelection
-              availableSlots={availableSlots}
+              availableSlots={safeSlots}
               selectedCourt={bookingData.court}
               selectedTimeSlot={bookingData.timeSlot}
               onTimeSlotSelect={handleTimeSlotSelect}
@@ -251,13 +269,13 @@ function BookingPage() {
           {step >= 3 && (
             <>
               <EquipmentSelection
-                equipment={equipment}
+                equipment={safeEquipment}
                 selectedEquipment={bookingData.equipment}
                 onEquipmentChange={handleEquipmentChange}
               />
 
               <CoachSelection
-                coaches={coaches}
+                coaches={safeCoaches}
                 selectedCoach={bookingData.coach}
                 onCoachSelect={handleCoachSelect}
                 date={bookingData.date}
@@ -280,7 +298,7 @@ function BookingPage() {
           <PriceBreakdown
             bookingData={bookingData}
             pricing={pricing}
-            onNextStep={() => setStep(step + 1)}
+            onNextStep={() => setStep((prev) => prev + 1)}
             canProceed={canProceedToNextStep()}
             currentStep={step}
           />

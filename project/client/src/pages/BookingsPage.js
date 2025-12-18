@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, MapPin, User, ShoppingBag, X } from 'lucide-react';
+import { Calendar, MapPin, User, ShoppingBag, X } from 'lucide-react';
 import { api } from '../utils/api';
 
 function BookingsPage() {
