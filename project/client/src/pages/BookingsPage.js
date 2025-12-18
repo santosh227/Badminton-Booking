@@ -15,9 +15,11 @@ function BookingsPage() {
   const loadBookings = async () => {
     try {
       const response = await api.get('/bookings');
-      setBookings(response.data);
+      const data = Array.isArray(response.data) ? response.data : [];
+      setBookings(data);
     } catch (error) {
       console.error('Error loading bookings:', error);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -30,7 +32,7 @@ function BookingsPage() {
 
     try {
       await api.patch(`/bookings/${bookingId}/cancel`);
-      loadBookings(); // Reload bookings
+      await loadBookings(); // Reload bookings
     } catch (error) {
       console.error('Error cancelling booking:', error);
       alert('Error cancelling booking. Please try again.');
@@ -50,9 +52,11 @@ function BookingsPage() {
     }
   };
 
-  const filteredBookings = bookings.filter(booking => {
+  const safeBookings = Array.isArray(bookings) ? bookings : [];
+
+  const filteredBookings = safeBookings.filter((booking) => {
     if (filter === 'all') return true;
-    return booking.status === filter;
+    return booking?.status === filter;
   });
 
   if (loading) {
@@ -79,7 +83,7 @@ function BookingsPage() {
               { key: 'all', label: 'All Bookings' },
               { key: 'confirmed', label: 'Confirmed' },
               { key: 'completed', label: 'Completed' },
-              { key: 'cancelled', label: 'Cancelled' }
+              { key: 'cancelled', label: 'Cancelled' },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -92,7 +96,9 @@ function BookingsPage() {
               >
                 {tab.label}
                 <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-gray-100 text-gray-600">
-                  {bookings.filter(b => tab.key === 'all' || b.status === tab.key).length}
+                  {safeBookings.filter(
+                    (b) => tab.key === 'all' || b?.status === tab.key
+                  ).length}
                 </span>
               </button>
             ))}
@@ -104,18 +110,22 @@ function BookingsPage() {
       {filteredBookings.length === 0 ? (
         <div className="text-center py-12">
           <Calendar className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No bookings found
+          </h3>
           <p className="text-gray-600">
-            {filter === 'all' 
-              ? 'There are no bookings yet.' 
-              : `There are no ${filter} bookings.`
-            }
+            {filter === 'all'
+              ? 'There are no bookings yet.'
+              : `There are no ${filter} bookings.`}
           </p>
         </div>
       ) : (
         <div className="space-y-4">
           {filteredBookings.map((booking) => (
-            <div key={booking._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div
+              key={booking._id}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+            >
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
@@ -126,12 +136,19 @@ function BookingsPage() {
                     <p className="text-gray-600">{booking.customerPhone}</p>
                   )}
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                      booking.status
+                    )}`}
+                  >
+                    {booking.status
+                      ? booking.status.charAt(0).toUpperCase() +
+                        booking.status.slice(1)
+                      : 'Unknown'}
                   </span>
-                  
+
                   {booking.status === 'confirmed' && (
                     <button
                       onClick={() => handleCancelBooking(booking._id)}
@@ -150,7 +167,9 @@ function BookingsPage() {
                   <Calendar className="w-4 h-4 text-gray-400" />
                   <div>
                     <div className="text-sm font-medium">
-                      {format(new Date(booking.date), 'MMM dd, yyyy')}
+                      {booking.date
+                        ? format(new Date(booking.date), 'MMM dd, yyyy')
+                        : 'Unknown date'}
                     </div>
                     <div className="text-xs text-gray-600">
                       {booking.startTime} - {booking.endTime}
@@ -162,19 +181,26 @@ function BookingsPage() {
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-4 h-4 text-gray-400" />
                   <div>
-                    <div className="text-sm font-medium">{booking.court.name}</div>
-                    <div className="text-xs text-gray-600 capitalize">{booking.court.type}</div>
+                    <div className="text-sm font-medium">
+                      {booking.court?.name || 'Unknown court'}
+                    </div>
+                    <div className="text-xs text-gray-600 capitalize">
+                      {booking.court?.type}
+                    </div>
                   </div>
                 </div>
 
                 {/* Equipment */}
-                {booking.equipment && booking.equipment.length > 0 ? (
+                {Array.isArray(booking.equipment) &&
+                booking.equipment.length > 0 ? (
                   <div className="flex items-center space-x-2">
                     <ShoppingBag className="w-4 h-4 text-gray-400" />
                     <div>
                       <div className="text-sm font-medium">Equipment</div>
                       <div className="text-xs text-gray-600">
-                        {booking.equipment.map(eq => `${eq.item.name} (${eq.quantity})`).join(', ')}
+                        {booking.equipment
+                          .map((eq) => `${eq.item?.name} (${eq.quantity})`)
+                          .join(', ')}
                       </div>
                     </div>
                   </div>
@@ -190,7 +216,9 @@ function BookingsPage() {
                   <div className="flex items-center space-x-2">
                     <User className="w-4 h-4 text-gray-400" />
                     <div>
-                      <div className="text-sm font-medium">{booking.coach.name}</div>
+                      <div className="text-sm font-medium">
+                        {booking.coach.name}
+                      </div>
                       <div className="text-xs text-gray-600">Coach</div>
                     </div>
                   </div>
@@ -203,38 +231,55 @@ function BookingsPage() {
               </div>
 
               {/* Pricing */}
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    <span>Court: ${booking.pricing.courtPrice}</span>
-                    {booking.pricing.equipmentPrice > 0 && (
-                      <span className="ml-4">Equipment: ${booking.pricing.equipmentPrice}</span>
-                    )}
-                    {booking.pricing.coachPrice > 0 && (
-                      <span className="ml-4">Coach: ${booking.pricing.coachPrice}</span>
-                    )}
+              {booking.pricing && (
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-gray-600">
+                      <span>Court: ${booking.pricing.courtPrice}</span>
+                      {booking.pricing.equipmentPrice > 0 && (
+                        <span className="ml-4">
+                          Equipment: ${booking.pricing.equipmentPrice}
+                        </span>
+                      )}
+                      {booking.pricing.coachPrice > 0 && (
+                        <span className="ml-4">
+                          Coach: ${booking.pricing.coachPrice}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-lg font-semibold text-gray-900">
+                      Total: ${booking.pricing.totalPrice}
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-gray-900">
-                    Total: ${booking.pricing.totalPrice}
-                  </div>
-                </div>
 
-                {booking.pricing.appliedRules && booking.pricing.appliedRules.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    Applied rules: {booking.pricing.appliedRules.map(rule => rule.ruleName).join(', ')}
-                  </div>
-                )}
-              </div>
+                  {Array.isArray(booking.pricing.appliedRules) &&
+                    booking.pricing.appliedRules.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        Applied rules:{' '}
+                        {booking.pricing.appliedRules
+                          .map((rule) => rule.ruleName)
+                          .join(', ')}
+                      </div>
+                    )}
+                </div>
+              )}
 
               {booking.notes && (
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm font-medium text-gray-700 mb-1">Notes:</div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">
+                    Notes:
+                  </div>
                   <div className="text-sm text-gray-600">{booking.notes}</div>
                 </div>
               )}
 
               <div className="mt-4 text-xs text-gray-500">
-                Booked on {format(new Date(booking.createdAt), 'MMM dd, yyyy \'at\' h:mm a')}
+                {booking.createdAt
+                  ? `Booked on ${format(
+                      new Date(booking.createdAt),
+                      "MMM dd, yyyy 'at' h:mm a"
+                    )}`
+                  : null}
               </div>
             </div>
           ))}
